@@ -266,9 +266,9 @@ public class Calculator {
 		maxima.add(false);
 		return maxima;
 	}
-	public String[] COM()
+	public String[] COM(double mass1, double mass2)
 	{
-		String[] retVal = new String[4];
+		String[] retVal = new String[6];
 		ArrayList<Double> acceleration1 = data1.get(1);
 		ArrayList<Double> acceleration2 = data2.get(1);
 		ArrayList<Double> velocity1 = integrate(acceleration1);
@@ -276,51 +276,58 @@ public class Calculator {
 		ArrayList<Double> accelproduct =  product(acceleration1, acceleration2);
 		accelproduct = absolute(accelproduct);
 		int collisionPoint = (int) max(accelproduct)[1];
-		retVal[0] = Double.toString(velocity1.get(collisionPoint-sampleRate/4));
-		retVal[1] = Double.toString(velocity2.get(collisionPoint-sampleRate/4));
-		retVal[2] = Double.toString(velocity1.get(collisionPoint+sampleRate/4));
-		retVal[3] = Double.toString(velocity2.get(collisionPoint+sampleRate/4));
+		retVal[0] = "Cart 1 Momentum Before Collision: "+Double.toString(mass1*velocity1.get(collisionPoint-sampleRate/4));
+		retVal[1] = "Cart 2 Momentum Before Collision: "+Double.toString(mass2*velocity2.get(collisionPoint-sampleRate/4));
+		retVal[2] = "Cart 1 Momentum After Collision: "+Double.toString(mass1*velocity1.get(collisionPoint+sampleRate/4));
+		retVal[3] = "Cart 2 Momentum After Collision: "+Double.toString(mass2*velocity2.get(collisionPoint+sampleRate/4));
+		retVal[4] = "Total Momentum Before Collision: "+ evaluateString(retVal[0])+evaluateString(retVal[1]);
+		retVal[5] = "Total Momentum After Collision: "+ evaluateString(retVal[2])+evaluateString(retVal[3]);
 		return retVal;
 	}
-	public String[] COE()
+	public String[] COE(double time, double spinMoi, double dropMass)
 	{
-		String[] retVal = new String[3];
+		String[] retVal = new String[12];
 		ArrayList<Double> spin = data1.get(5);
 		ArrayList<Double> dropAcceleration = data2.get(1);
 		ArrayList<Double> dropVelocity = integrate(dropAcceleration);
 		ArrayList<Double> dropDistance = integrate(dropVelocity);
 		int point = 0;
+		int timePoint = (int) Math.floor(time*sampleRate);
 		if(max(dropAcceleration)[0]>Math.abs(min(dropAcceleration)[0]))
 		{
 			point = (int)max(dropAcceleration)[1];
 			retVal[2] = "Total Drop Distance: " + Math.abs(max(subRange(dropDistance,0,point))[0]);
+			retVal[3] = "Energy at the top: " + dropMass*9.81*Math.abs(max(subRange(dropDistance,0,point))[0]);
+			retVal[10] = "Potential Energy(point): " + dropMass*9.81*(Math.abs(max(subRange(dropDistance,0,point))[0])-dropDistance.get(timePoint));
 		}
 		else
 		{
 			point = (int)min(dropAcceleration)[1];
 			retVal[2] = "Total Drop Distance: " + Math.abs(min(subRange(dropDistance,0,point))[0]);
+			retVal[3] = "Energy at the top: " + dropMass*9.81*Math.abs(min(subRange(dropDistance,0,point))[0]);
+			retVal[10] = "Potential Energy(point): " + dropMass*9.81*(Math.abs(min(subRange(dropDistance,0,point))[0])-Math.abs(dropDistance.get(timePoint)));
 		}
 		if(max(spin)[0]>Math.abs(min(spin)[0]))
 		{
 			retVal[0] = "Maximum Angular Velocity: "+max(spin)[0]*Math.PI/180;
+			retVal[4] = "Energy at the bottom: " + 0.5*spinMoi*(max(spin)[0]*Math.PI/180)*(max(spin)[0]*Math.PI/180);
 		}
 		else
 		{
 			retVal[0] = "Maximum Angular Velocity: "+Math.abs(min(spin)[0])*Math.PI/180;
+			retVal[4] = "Energy at the bottom: " + 0.5*spinMoi*(Math.abs(min(spin)[0])*Math.PI/180)*(Math.abs(min(spin)[0])*Math.PI/180);
 		}
 		retVal[1] = "Linear Acceleration: " + Math.abs(dropAcceleration.get(point-sampleRate/10));
+		retVal[5] = "Angular Velocity(point): "+Math.abs(spin.get(timePoint)*Math.PI/180);
+		retVal[6] = "Linear Velocity(point): " + Math.abs(dropVelocity.get(timePoint));
+		retVal[7] = "Drop Distance(point): " + Math.abs(integrate(dropVelocity).get(timePoint));
+		retVal[8] = "Rotational Kinetic Energy(point): " + 0.5*spinMoi*Math.abs(spin.get(timePoint)*Math.PI/180)*Math.abs(spin.get(timePoint)*Math.PI/180);
+		retVal[9] = "Linear Kinetic Energy(point): " + 0.5*dropMass*Math.abs(dropVelocity.get(timePoint))*Math.abs(dropVelocity.get(timePoint));
+		retVal[11]  = "Total Energy(point): " + evaluateString(retVal[8])+evaluateString(retVal[9])+evaluateString(retVal[10]);
 		return retVal;
 	}
-	public String[] COE(double time)
+	public double evaluateString(String s)
 	{
-		String[] retVal = new String[3];
-		ArrayList<Double> spin = data1.get(5);
-		ArrayList<Double> dropAcceleration = data2.get(1);
-		ArrayList<Double> dropVelocity = integrate(dropAcceleration);
-		int point = (int) Math.floor(time*sampleRate);
-		retVal[0] = "Angular Velocity: "+Math.abs(spin.get(point)*Math.PI/180);
-		retVal[1] = "Linear Velocity: " + Math.abs(dropVelocity.get(point));
-		retVal[2] = "Drop Distance: " + Math.abs(integrate(dropVelocity).get(point));
-		return retVal;
+		return Double.parseDouble(s.split(" ")[s.split(" ").length-1]);
 	}
 }
