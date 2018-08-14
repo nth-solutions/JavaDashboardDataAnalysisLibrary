@@ -16,21 +16,37 @@ public class Calculator {
 		sampleRate = parameters.get(7);
 		accelSensitivity = parameters.get(9);
 		gyroSensitivity = parameters.get(10);
+		signData(this.data1);
 		convertData(this.data1);
 		normalize(this.data1);
 	}
-	Calculator(List<List<Double>> data1, List<List<Double>> data2,ArrayList<Integer> parameters, int baselineSamples)
+	Calculator(List<List<Double>> data1, List<List<Double>> data2,ArrayList<Integer> parameters, double baseline)
 	{
 		this.data1 = (ArrayList) data1;
 		this.data2 = (ArrayList) data2;
-		this.baselineSamples = baselineSamples;
 		sampleRate = parameters.get(7);
+		this.baselineSamples = (int)Math.floor(baseline*sampleRate);
 		accelSensitivity = parameters.get(9);
 		gyroSensitivity = parameters.get(10);
+		signData(this.data1);
 		convertData(this.data1);
 		normalize(this.data1);
+		signData(this.data1);
 		convertData(this.data2);
 		normalize(this.data2);
+	}
+	private void signData(ArrayList<ArrayList<Double>> data)
+	{
+		for(int i =0; i<data.size(); i++)
+		{
+			for(int j = 0; j<data.get(i).size(); j++)
+			{
+				if(data.get(i).get(j)>32768)
+				{
+					data.get(i).set(j, data.get(i).get(j)-65536);
+				}
+			}
+		}
 	}
 	private void convertData(ArrayList<ArrayList<Double>> data)
 	{
@@ -76,9 +92,12 @@ public class Calculator {
 	public ArrayList<Double> integrate(ArrayList<Double> column)
 	{
 		ArrayList<Double> retVal = new ArrayList<Double>();
+		retVal.add((double) 0);
 		for(int i = 0; i<column.size()-1; i++)
 		{
-			retVal.add((column.get(i)+column.get(i+1))/2/sampleRate);
+			
+			retVal.add(retVal.get(i)+(column.get(i)+column.get(i+1))*0.5/(double)sampleRate);
+			//System.out.println(retVal.get(i)+(column.get(i)+column.get(i+1))*0.5/(double)sampleRate);
 		}
 		return retVal;
 	}
@@ -97,6 +116,7 @@ public class Calculator {
 		double point = 0;
 		for(int i = 0; i<column.size(); i++)
 		{
+			System.out.println(column.get(i));
 			if (column.get(i)>max)
 			{
 				max = column.get(i);
@@ -114,10 +134,10 @@ public class Calculator {
 		double point = 0;
 		for(int i = 0; i<column.size(); i++)
 		{
-			if (column.get(i)>min)
+			if (column.get(i)<min)
 			{
-			min = column.get(i);
-			point = i;
+				min = column.get(i);
+				point = i;
 			}
 		}
 		double[] retVal = new double[2];
@@ -184,14 +204,14 @@ public class Calculator {
 			impactPoint = (int) max(acceleration)[1];
 			opposite = Math.abs(min(subRange(acceleration,0,impactPoint))[0]);
 			oppositePoint = (int)min(subRange(acceleration,0,impactPoint))[1];
-			retVal[0] = "Acceleration Along Slope: " + Double.toString(min(subRange(velocity,0,impactPoint))[0]) + "m/s^2";
+			retVal[0] = "Acceleration Along Slope: " + Double.toString(min(subRange(velocity,0,impactPoint))[0]) + " m/s^2";
 		}
 		else
 		{
 			impactPoint = (int) min(acceleration)[1];
 			opposite = Math.abs(max(subRange(acceleration,0,impactPoint))[0]);
 			oppositePoint = (int)max(subRange(acceleration,0,impactPoint))[1];
-			retVal[0] = "Acceleration Along Slope: " + Double.toString(max(subRange(velocity,0,impactPoint))[0]) + "m/s^2";
+			retVal[0] = "Acceleration Along Slope: " + Double.toString(max(subRange(velocity,0,impactPoint))[0]) + " m/s^2";
 		}
 		ArrayList<Double> leftRange = new ArrayList<Double>();
 		ArrayList<Double> rightRange = new ArrayList<Double>();
@@ -205,11 +225,11 @@ public class Calculator {
 		}
 		if(Math.abs(average(leftRange)-opposite) < Math.abs(average(rightRange)-opposite))
 		{
-			retVal[0] = "Max Velocity: " + Double.toString(average(leftRange)) + "m/s";
+			retVal[0] = "Max Velocity: " + Double.toString(average(leftRange)) + " m/s";
 		}
 		else
 		{
-			retVal[0] = "Max Velocity: " + Double.toString(average(rightRange)) + "m/s";
+			retVal[0] = "Max Velocity: " + Double.toString(average(rightRange)) + " m/s";
 		}
 		return retVal;
 	}
@@ -218,10 +238,10 @@ public class Calculator {
 		String[] retVal = new String[2];
 		ArrayList<Double> gyro = data1.get(5);
 		double maxGyro = max(data1.get(5))[0];
-		int firstMax = (int) max(data1.get(5))[0];
+		int firstMax = (int) max(data1.get(5))[1];
 		retVal[0] = "Max Velocity: " + Double.toString(maxGyro*Math.PI/180) + "rad/s";
-		int minAfterFirstMax = (int)min(subRange(gyro, firstMax, gyro.size()))[1];
-		retVal[1] = "Period: " + Double.toString(2*(minAfterFirstMax-firstMax)/sampleRate) + "s";
+		int minAfterFirstMax = (int)min(subRange(gyro, firstMax, gyro.size()))[1]+firstMax;
+		retVal[1] = "Period: " + Double.toString(2*(double)(minAfterFirstMax-firstMax)/(double)sampleRate) + " s";
 		return retVal;
 	}
 	public String[] spring()
@@ -247,9 +267,9 @@ public class Calculator {
 				break;
 			}
 		}
-		retVal[0] = "Period: " + Double.toString(secondMax-firstMax/sampleRate);
-		retVal[1] = "Max Acceleration: " + Double.toString(max(acceleration)[0]);
-		retVal[2] = "Max Velocity: " + Double.toString(max(velocity)[0]);
+		retVal[0] = "Period: " + Double.toString((double)(secondMax-firstMax)/(double)sampleRate)+" s";
+		retVal[1] = "Max Acceleration: " + Double.toString(max(acceleration)[0])+" m/s/s";
+		//retVal[2] = "Max Velocity: " + Double.toString(max(velocity)[0])+" m/s";
 		return retVal;
 	}
 	public ArrayList<Boolean> localMaxima (ArrayList<Double> column)
@@ -260,6 +280,7 @@ public class Calculator {
 		{
 			if(column.get(i)>column.get(i-1)&&column.get(i)>column.get(i+1)&&column.get(i)>max(column)[0])
 			{
+				System.out.println(true);
 				maxima.add(true);
 			}
 		}
@@ -276,12 +297,12 @@ public class Calculator {
 		ArrayList<Double> accelproduct =  product(acceleration1, acceleration2);
 		accelproduct = absolute(accelproduct);
 		int collisionPoint = (int) max(accelproduct)[1];
-		retVal[0] = "Cart 1 Momentum Before Collision: "+Double.toString(mass1*velocity1.get(collisionPoint-sampleRate/4));
-		retVal[1] = "Cart 2 Momentum Before Collision: "+Double.toString(mass2*velocity2.get(collisionPoint-sampleRate/4));
-		retVal[2] = "Cart 1 Momentum After Collision: "+Double.toString(mass1*velocity1.get(collisionPoint+sampleRate/4));
-		retVal[3] = "Cart 2 Momentum After Collision: "+Double.toString(mass2*velocity2.get(collisionPoint+sampleRate/4));
-		retVal[4] = "Total Momentum Before Collision: "+ evaluateString(retVal[0])+evaluateString(retVal[1]);
-		retVal[5] = "Total Momentum After Collision: "+ evaluateString(retVal[2])+evaluateString(retVal[3]);
+		retVal[0] = "Cart 1 Momentum Before Collision: "+Double.toString(mass1*velocity1.get(collisionPoint-sampleRate/4))+" kgm/s";
+		retVal[1] = "Cart 2 Momentum Before Collision: "+Double.toString(mass2*velocity2.get(collisionPoint-sampleRate/4))+" kgm/s";
+		retVal[2] = "Cart 1 Momentum After Collision: "+Double.toString(mass1*velocity1.get(collisionPoint+sampleRate/4))+" kgm/s";
+		retVal[3] = "Cart 2 Momentum After Collision: "+Double.toString(mass2*velocity2.get(collisionPoint+sampleRate/4))+" kgm/s";
+		retVal[4] = "Total Momentum Before Collision: "+ evaluateString(retVal[0])+evaluateString(retVal[1])+" kgm/s";
+		retVal[5] = "Total Momentum After Collision: "+ evaluateString(retVal[2])+evaluateString(retVal[3])+" kgm/s";
 		return retVal;
 	}
 	public String[] COE(double time, double spinMoi, double dropMass)
@@ -296,38 +317,38 @@ public class Calculator {
 		if(max(dropAcceleration)[0]>Math.abs(min(dropAcceleration)[0]))
 		{
 			point = (int)max(dropAcceleration)[1];
-			retVal[2] = "Total Drop Distance: " + Math.abs(max(subRange(dropDistance,0,point))[0]);
-			retVal[3] = "Energy at the top: " + dropMass*9.81*Math.abs(max(subRange(dropDistance,0,point))[0]);
-			retVal[10] = "Potential Energy(point): " + dropMass*9.81*(Math.abs(max(subRange(dropDistance,0,point))[0])-dropDistance.get(timePoint));
+			retVal[2] = "Total Drop Distance: " + Math.abs(max(subRange(dropDistance,0,point))[0])+" m";
+			retVal[3] = "Energy at the top: " + dropMass*9.81*Math.abs(max(subRange(dropDistance,0,point))[0])+" J";
+			retVal[10] = "Potential Energy(point): " + dropMass*9.81*(Math.abs(max(subRange(dropDistance,0,point))[0])-dropDistance.get(timePoint))+" J";
 		}
 		else
 		{
 			point = (int)min(dropAcceleration)[1];
-			retVal[2] = "Total Drop Distance: " + Math.abs(min(subRange(dropDistance,0,point))[0]);
-			retVal[3] = "Energy at the top: " + dropMass*9.81*Math.abs(min(subRange(dropDistance,0,point))[0]);
-			retVal[10] = "Potential Energy(point): " + dropMass*9.81*(Math.abs(min(subRange(dropDistance,0,point))[0])-Math.abs(dropDistance.get(timePoint)));
+			retVal[2] = "Total Drop Distance: " + Math.abs(min(subRange(dropDistance,0,point))[0])+" m";
+			retVal[3] = "Energy at the top: " + dropMass*9.81*Math.abs(min(subRange(dropDistance,0,point))[0])+" J";
+			retVal[10] = "Potential Energy(point): " + dropMass*9.81*(Math.abs(min(subRange(dropDistance,0,point))[0])-Math.abs(dropDistance.get(timePoint)))+" J";
 		}
 		if(max(spin)[0]>Math.abs(min(spin)[0]))
 		{
-			retVal[0] = "Maximum Angular Velocity: "+max(spin)[0]*Math.PI/180;
-			retVal[4] = "Energy at the bottom: " + 0.5*spinMoi*(max(spin)[0]*Math.PI/180)*(max(spin)[0]*Math.PI/180);
+			retVal[0] = "Maximum Angular Velocity: "+max(spin)[0]*Math.PI/180+" rad/s";
+			retVal[4] = "Energy at the bottom: " + 0.5*spinMoi*(max(spin)[0]*Math.PI/180)*(max(spin)[0]*Math.PI/180)+" J";
 		}
 		else
 		{
-			retVal[0] = "Maximum Angular Velocity: "+Math.abs(min(spin)[0])*Math.PI/180;
-			retVal[4] = "Energy at the bottom: " + 0.5*spinMoi*(Math.abs(min(spin)[0])*Math.PI/180)*(Math.abs(min(spin)[0])*Math.PI/180);
+			retVal[0] = "Maximum Angular Velocity: "+Math.abs(min(spin)[0])*Math.PI/180+" rad/s";
+			retVal[4] = "Energy at the bottom: " + 0.5*spinMoi*(Math.abs(min(spin)[0])*Math.PI/180)*(Math.abs(min(spin)[0])*Math.PI/180)+" J";
 		}
-		retVal[1] = "Linear Acceleration: " + Math.abs(dropAcceleration.get(point-sampleRate/10));
-		retVal[5] = "Angular Velocity(point): "+Math.abs(spin.get(timePoint)*Math.PI/180);
-		retVal[6] = "Linear Velocity(point): " + Math.abs(dropVelocity.get(timePoint));
+		retVal[1] = "Linear Acceleration: " + Math.abs(dropAcceleration.get(point-sampleRate/10))+" m/s/s";
+		retVal[5] = "Angular Velocity(point): "+Math.abs(spin.get(timePoint)*Math.PI/180)+" rad/s";
+		retVal[6] = "Linear Velocity(point): " + Math.abs(dropVelocity.get(timePoint))+" m/s";
 		retVal[7] = "Drop Distance(point): " + Math.abs(integrate(dropVelocity).get(timePoint));
-		retVal[8] = "Rotational Kinetic Energy(point): " + 0.5*spinMoi*Math.abs(spin.get(timePoint)*Math.PI/180)*Math.abs(spin.get(timePoint)*Math.PI/180);
-		retVal[9] = "Linear Kinetic Energy(point): " + 0.5*dropMass*Math.abs(dropVelocity.get(timePoint))*Math.abs(dropVelocity.get(timePoint));
-		retVal[11]  = "Total Energy(point): " + evaluateString(retVal[8])+evaluateString(retVal[9])+evaluateString(retVal[10]);
+		retVal[8] = "Rotational Kinetic Energy(point): " + 0.5*spinMoi*Math.abs(spin.get(timePoint)*Math.PI/180)*Math.abs(spin.get(timePoint)*Math.PI/180)+" J";
+		retVal[9] = "Linear Kinetic Energy(point): " + 0.5*dropMass*Math.abs(dropVelocity.get(timePoint))*Math.abs(dropVelocity.get(timePoint))+" J";
+		retVal[11]  = "Total Energy(point): " + evaluateString(retVal[8])+evaluateString(retVal[9])+evaluateString(retVal[10])+" J";
 		return retVal;
 	}
 	public double evaluateString(String s)
 	{
-		return Double.parseDouble(s.split(" ")[s.split(" ").length-1]);
+		return Double.parseDouble(s.split(" ")[s.split(" ").length-2]);
 	}
 }
