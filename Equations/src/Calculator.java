@@ -8,6 +8,7 @@ public class Calculator {
 	private int baselineSamples;
 	private int accelSensitivity;
 	private int gyroSensitivity;
+	private double[] baselines = new double[9];
 	private int magSensitivity = 4800;
 	Calculator(List<List<Double>> data1,ArrayList<Integer> parameters, int baselineSamples)
 	{
@@ -18,7 +19,9 @@ public class Calculator {
 		gyroSensitivity = parameters.get(10);
 		signData(this.data1);
 		convertData(this.data1);
+		calculateBaseline(this.data1);
 		normalize(this.data1);
+		smooth(this.data1);
 	}
 	Calculator(List<List<Double>> data1, List<List<Double>> data2,ArrayList<Integer> parameters, double baseline)
 	{
@@ -30,10 +33,14 @@ public class Calculator {
 		gyroSensitivity = parameters.get(10);
 		signData(this.data1);
 		convertData(this.data1);
+		calculateBaseline(this.data1);
 		normalize(this.data1);
-		signData(this.data1);
+		smooth(this.data1);
+		signData(this.data2);
 		convertData(this.data2);
+		calculateBaseline(this.data2);
 		normalize(this.data2);
+		smooth(this.data2);
 	}
 	private void signData(ArrayList<ArrayList<Double>> data)
 	{
@@ -57,7 +64,7 @@ public class Calculator {
 				double sensitivity = magSensitivity;
 				if(i<3)
 				{
-					sensitivity = accelSensitivity*9.81;
+					sensitivity = accelSensitivity*9.807;
 				}
 				else if(i<6)
 				{
@@ -73,21 +80,31 @@ public class Calculator {
 		{
 			for(int j = 0; j<data.get(i).size(); j++)
 			{
-				data.get(i).set(j, data.get(i).get(j)-calculateBaseline(data)[i]);
+				data.get(i).set(j, data.get(i).get(j)-baselines[i]);
 			}
 		}
 	}
-	private double[] calculateBaseline(ArrayList<ArrayList<Double>> data)
+	private void calculateBaseline(ArrayList<ArrayList<Double>> data)
 	{
-		double[] baselines = new double[9];
+		double[] baselines = new double[9]; 
 		for(int i = 0; i< data.size(); i++)
 		{
 			for(int j= 0; j<baselineSamples; j++)
 			{
-				baselines[i] += data.get(i).get(j);
+				baselines[i] += data.get(i).get(j)/baselineSamples;
 			}
 		}
-		return baselines;
+		for(int i = 0; i< data.size(); i++)
+		{
+			this.baselines[i] = baselines[i];
+		}
+	}
+	public void smooth(ArrayList<ArrayList<Double>> data)
+	{
+		for(int i =0; i<data.size(); i++)
+		{
+			data.set(i, movingAverage(data.get(i), 100));
+		}
 	}
 	public ArrayList<Double> integrate(ArrayList<Double> column)
 	{
@@ -116,10 +133,9 @@ public class Calculator {
 		double point = 0;
 		for(int i = 0; i<column.size(); i++)
 		{
-			System.out.println(column.get(i));
 			if (column.get(i)>max)
 			{
-				max = column.get(i);
+				max = column.get(i);	
 				point = i;
 			}
 		}
@@ -145,12 +161,23 @@ public class Calculator {
 		retVal[1] = point;
 		return retVal;
 	}
+	public double[] greatest(ArrayList<Double> column)
+	{
+		double[] max = max(column);
+		double[] min = min(column);
+		if(max[0]>Math.abs(min[0]))
+			return max;
+		return min;
+	}
 	public ArrayList<Double> product(ArrayList<Double> column1, ArrayList<Double> column2)
 	{
 		ArrayList<Double> retVal = new ArrayList<Double>();
 		for(int i = 0; i<column1.size(); i++)
 		{
-			retVal.add(column1.get(i)*column2.get(i));
+			if(column2.size()>i)
+			{
+				retVal.add(column1.get(i)*column2.get(i));
+			}
 		}
 		return retVal;
 	}
@@ -199,19 +226,20 @@ public class Calculator {
 		double opposite = 0;
 		int oppositePoint = 0;
 		int impactPoint = 0;
-		if(max(acceleration)[0] > Math.abs(min(acceleration)[0]))
+		if(max(acceleration)[0] >= Math.abs(min(acceleration)[0]))
 		{
 			impactPoint = (int) max(acceleration)[1];
 			opposite = Math.abs(min(subRange(acceleration,0,impactPoint))[0]);
 			oppositePoint = (int)min(subRange(acceleration,0,impactPoint))[1];
-			retVal[0] = "Acceleration Along Slope: " + Double.toString(min(subRange(velocity,0,impactPoint))[0]) + " m/s^2";
+			retVal[1] = "Max Velocity: " + Double.toString(min(subRange(velocity,0,impactPoint))[0]) + " m/s^2";
 		}
 		else
 		{
+			System.out.println(max(acceleration)[0]+","+min(acceleration)[0]);
 			impactPoint = (int) min(acceleration)[1];
 			opposite = Math.abs(max(subRange(acceleration,0,impactPoint))[0]);
 			oppositePoint = (int)max(subRange(acceleration,0,impactPoint))[1];
-			retVal[0] = "Acceleration Along Slope: " + Double.toString(max(subRange(velocity,0,impactPoint))[0]) + " m/s^2";
+			retVal[1] = "Max Velocity: " + Double.toString(max(subRange(velocity,0,impactPoint))[0]) + " m/s^2";
 		}
 		ArrayList<Double> leftRange = new ArrayList<Double>();
 		ArrayList<Double> rightRange = new ArrayList<Double>();
@@ -225,11 +253,11 @@ public class Calculator {
 		}
 		if(Math.abs(average(leftRange)-opposite) < Math.abs(average(rightRange)-opposite))
 		{
-			retVal[0] = "Max Velocity: " + Double.toString(average(leftRange)) + " m/s";
+			retVal[0] = "Acceleration Along Slope: " + Double.toString(average(leftRange)) + " m/s";
 		}
 		else
 		{
-			retVal[0] = "Max Velocity: " + Double.toString(average(rightRange)) + " m/s";
+			retVal[0] = "Acceleration Along Slope: " + Double.toString(average(rightRange)) + " m/s";
 		}
 		return retVal;
 	}
@@ -251,25 +279,26 @@ public class Calculator {
 		ArrayList<Double> velocity = integrate(acceleration);
 		int firstMax = 0;
 		int secondMax = 0;
-		for(int i = 0; i<localMaxima(velocity).size();i++)
+		ArrayList<Boolean> maxima = localMaxima(velocity);
+		for(int i = 0; i<maxima.size();i++)
 		{
-			if(localMaxima(velocity).get(i))
+			if(maxima.get(i))
 			{
 				firstMax = i;
 				break;
 			}
 		}
-		for(int i = firstMax+1; i<localMaxima(velocity).size();i++)
+		for(int i = firstMax+1; i<maxima.size();i++)
 		{
-			if(localMaxima(velocity).get(i))
+			if(maxima.get(i))
 			{
 				secondMax = i;
 				break;
 			}
 		}
 		retVal[0] = "Period: " + Double.toString((double)(secondMax-firstMax)/(double)sampleRate)+" s";
-		retVal[1] = "Max Acceleration: " + Double.toString(max(acceleration)[0])+" m/s/s";
-		//retVal[2] = "Max Velocity: " + Double.toString(max(velocity)[0])+" m/s";
+		retVal[1] = "Max Acceleration: " + Double.toString(greatest(acceleration)[0])+" m/s/s";
+		retVal[2] = "Max Velocity: " + Double.toString(greatest(velocity)[0])+" m/s";
 		return retVal;
 	}
 	public ArrayList<Boolean> localMaxima (ArrayList<Double> column)
@@ -278,10 +307,13 @@ public class Calculator {
 		maxima.add(false);
 		for(int i = 1; i<column.size()-1;i++)
 		{
-			if(column.get(i)>column.get(i-1)&&column.get(i)>column.get(i+1)&&column.get(i)>max(column)[0])
+			if(column.get(i)>column.get(i-1)&&column.get(i)>column.get(i+1)&&column.get(i)>max(column)[0]/2)
 			{
-				System.out.println(true);
 				maxima.add(true);
+			}
+			else
+			{
+				maxima.add(false);
 			}
 		}
 		maxima.add(false);
@@ -297,12 +329,13 @@ public class Calculator {
 		ArrayList<Double> accelproduct =  product(acceleration1, acceleration2);
 		accelproduct = absolute(accelproduct);
 		int collisionPoint = (int) max(accelproduct)[1];
+		System.out.println(collisionPoint);
 		retVal[0] = "Cart 1 Momentum Before Collision: "+Double.toString(mass1*velocity1.get(collisionPoint-sampleRate/4))+" kgm/s";
 		retVal[1] = "Cart 2 Momentum Before Collision: "+Double.toString(mass2*velocity2.get(collisionPoint-sampleRate/4))+" kgm/s";
 		retVal[2] = "Cart 1 Momentum After Collision: "+Double.toString(mass1*velocity1.get(collisionPoint+sampleRate/4))+" kgm/s";
 		retVal[3] = "Cart 2 Momentum After Collision: "+Double.toString(mass2*velocity2.get(collisionPoint+sampleRate/4))+" kgm/s";
-		retVal[4] = "Total Momentum Before Collision: "+ evaluateString(retVal[0])+evaluateString(retVal[1])+" kgm/s";
-		retVal[5] = "Total Momentum After Collision: "+ evaluateString(retVal[2])+evaluateString(retVal[3])+" kgm/s";
+		retVal[4] = "Total Momentum Before Collision: "+ (double)(evaluateString(retVal[0])+evaluateString(retVal[1]))+" kgm/s";
+		retVal[5] = "Total Momentum After Collision: "+ (double)(evaluateString(retVal[2])+evaluateString(retVal[3]))+" kgm/s";
 		return retVal;
 	}
 	public String[] COE(double time, double spinMoi, double dropMass)
