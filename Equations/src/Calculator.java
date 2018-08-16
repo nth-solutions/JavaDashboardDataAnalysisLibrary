@@ -1,3 +1,5 @@
+//call me 484-356-8900 if you really need it
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -16,8 +18,8 @@ public class Calculator {
 	Calculator(List<List<Double>> data1,ArrayList<Integer> parameters, double baseline, int movingAverage)
 	{
 		this.data1 = (ArrayList) data1;
-		this.baselineSamples = (int)Math.floor(baseline*sampleRate);
 		sampleRate = parameters.get(7);
+		this.baselineSamples = (int)Math.floor(baseline*sampleRate);
 		accelSensitivity = parameters.get(9);
 		gyroSensitivity = parameters.get(10);
 		filter = movingAverage;
@@ -145,15 +147,15 @@ public class Calculator {
 		}
 		return retVal;
 	}
-	//The following method uses trapezoidal estimation in order to return an integrate version of the parameter "column"
+	//The following method uses trapezoidal estimation in order to return an integrated version of the parameter "column"
 	public ArrayList<Double> integrate(ArrayList<Double> column)
 	{
 		ArrayList<Double> retVal = new ArrayList<Double>();
 		retVal.add((double) 0);
-		for(int i = 0; i<column.size()-1; i++)
+		for(int i = 1; i<column.size()-1; i++)
 		{
 			//adds the area of the trapezoid encompassed by the two points.
-			retVal.add(retVal.get(i)+(column.get(i)+column.get(i+1))*0.5/(double)sampleRate);
+			retVal.add(retVal.get(i-1)+(column.get(i)+column.get(i+1))*0.5/(double)sampleRate);
 		}
 		return retVal;
 	}
@@ -239,7 +241,7 @@ public class Calculator {
 	public ArrayList<Double> subRange(ArrayList<Double> a, int start, int end )
 	{
 		ArrayList<Double> retVal = new ArrayList<Double>();
-		for(int i = start; i< end; i++)
+		for(int i = start; i<end; i++)
 		{
 			retVal.add(a.get(i));
 		}
@@ -264,16 +266,17 @@ public class Calculator {
 			opposite = Math.abs(min(subRange(acceleration,0,impactPoint))[0]);
 			oppositePoint = (int)min(subRange(acceleration,0,impactPoint))[1];
 			//sets max velocity equal to the maximum speed before the point of collision to avoid integration errors
-			retVal[1] = "Max Velocity: " + Double.toString(min(subRange(velocity,0,impactPoint))[0]) + " m/s^2";
+			retVal[1] = "Max Velocity: " + Double.toString(min(subRange(velocity,0,impactPoint))[0]) + " m/s";
 		}
 		else
 		{
 			//does the same thing as the if but in the case that the module is facing the opposite direction
-			System.out.println(max(acceleration)[0]+","+min(acceleration)[0]);
+			
 			impactPoint = (int) min(acceleration)[1];
 			opposite = Math.abs(max(subRange(acceleration,0,impactPoint))[0]);
 			oppositePoint = (int)max(subRange(acceleration,0,impactPoint))[1];
-			retVal[1] = "Max Velocity: " + Double.toString(max(subRange(velocity,0,impactPoint))[0]) + " m/s^2";
+			
+			retVal[1] = "Max Velocity: " + Double.toString(max(subRange(velocity,0,impactPoint))[0]) + " m/s";
 		}
 		//creates two ranges around the opposite point to evaluate the acceleration along the slope
 		ArrayList<Double> leftRange = new ArrayList<Double>();
@@ -287,13 +290,13 @@ public class Calculator {
 			rightRange.add(acceleration.get(oppositePoint + sampleRate/4+ i));
 		}
 		//finds whichever average is closer and sets the acceleration along the slope equal to that value
-		if(Math.abs(average(leftRange)-opposite) < Math.abs(average(rightRange)-opposite))
+		if(Math.abs(Math.abs(average(leftRange))-Math.abs(opposite)) < Math.abs(Math.abs(average(rightRange))-Math.abs(opposite)))
 		{
-			retVal[0] = "Acceleration Along Slope: " + Double.toString(average(leftRange)) + " m/s";
+			retVal[0] = "Acceleration Along Slope: " + Double.toString(average(leftRange)) + " m/s^2";
 		}
 		else
 		{
-			retVal[0] = "Acceleration Along Slope: " + Double.toString(average(rightRange)) + " m/s";
+			retVal[0] = "Acceleration Along Slope: " + Double.toString(average(rightRange)) + " m/s^2";
 		}
 		return retVal;
 	}
